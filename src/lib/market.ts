@@ -31,7 +31,7 @@ export const ASSETS: Record<AssetKey, { name: string; unit: string; precision: n
   ndx: { name: "纳斯达克100", unit: "点", precision: 2 },
   spx: { name: "标普500", unit: "点", precision: 2 },
   gold: { name: "伦敦金现", unit: "美元/盎司", precision: 2 },
-  dv50: { name: "标普红利低波50ETF联接A", unit: "元", precision: 4 },
+  dv50: { name: "标普红利低波50", unit: "元", precision: 4 },
 };
 
 export const GOLD_SOURCES: Record<GoldSource, { name: string; unit: string }> = {

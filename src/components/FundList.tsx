@@ -46,7 +46,7 @@ const ACTIVE_SORTS: { key: ActiveSortKey; label: string }[] = [
 ];
 
 export default function FundList({ funds, activeFunds }: { funds: FundInfo[]; activeFunds: ActiveFundInfo[] }) {
-  const [activeSort, setActiveSort] = useState<ActiveSortKey>("limit");
+  const [activeSort, setActiveSort] = useState<ActiveSortKey>("change");
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {GROUPS.map(({ asset, label }) => {

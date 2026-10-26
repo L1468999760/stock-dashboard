@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Umami 统计分析(afterInteractive ≈ defer,不影响首屏) */}
+        <Script
+          defer
+          src="https://traffic.lijinning.top/script.js"
+          data-website-id="30f4202c-b3de-49c2-9fd9-60ab933667f7"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
