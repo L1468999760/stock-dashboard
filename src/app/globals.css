@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 亮色(默认变量),.dark 覆盖为暗色 */
+:root {
+  --c-bg: 250 250 250;
+  --c-card: 255 255 255;
+  --c-chip: 228 228 231;
+  --c-chip-active: 255 255 255;
+  --c-line: 228 228 231;
+  --c-line-strong: 212 212 216;
+  --c-fg: 24 24 27;
+  --c-fg-soft: 63 63 70;
+  --c-muted: 113 113 122;
+  --c-faint: 161 161 170;
+}
+
+.dark {
+  --c-bg: 9 9 11;
+  --c-card: 24 24 27;
+  --c-chip: 39 39 42;
+  --c-chip-active: 82 82 91;
+  --c-line: 39 39 42;
+  --c-line-strong: 63 63 70;
+  --c-fg: 244 244 245;
+  --c-fg-soft: 212 212 216;
+  --c-muted: 113 113 122;
+  --c-faint: 82 82 91;
+}
+
+body {
+  @apply bg-bg text-fg antialiased;
+}
