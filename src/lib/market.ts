@@ -433,7 +433,7 @@ async function fetchUsCpiYoY(): Promise<Map<string, number>> {
 
 // 逐日对齐到展示窗口:取"当日及之前最近一次"的值(发布日/交易日跨周末、节假日也能命中)
 function alignByDate(shown: KLine[], map: Map<string, number>): (number | null)[] {
-  const events = [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+  const events = Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
   const out: (number | null)[] = [];
   let i = 0;
   let last: number | null = null;
