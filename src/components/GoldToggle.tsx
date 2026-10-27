@@ -1,13 +1,16 @@
 "use client";
 
 import type { GoldSource } from "@/lib/market";
+import type { Key } from "@/lib/i18n";
+import { useI18n } from "./I18nProvider";
 
-const OPTIONS: Array<{ key: GoldSource; label: string }> = [
-  { key: "cn", label: "国内" },
-  { key: "intl", label: "国际" },
+const OPTIONS: Array<{ key: GoldSource; label: Key }> = [
+  { key: "cn", label: "goldCn" },
+  { key: "intl", label: "goldIntl" },
 ];
 
-export default function GoldToggle({ value, onChange }: { value: GoldSource; onChange: (v: GoldSource) => void }) {
+export default function GoldToggle({ value, onChange }: { value: GoldSource; onChange: (src: GoldSource) => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-0.5 rounded-md bg-chip p-0.5">
       {OPTIONS.map((o) => (
@@ -18,7 +21,7 @@ export default function GoldToggle({ value, onChange }: { value: GoldSource; onC
             value === o.key ? "bg-chip-active text-fg" : "text-muted hover:text-fg-soft"
           }`}
         >
-          {o.label}
+          {t(o.label)}
         </button>
       ))}
     </div>

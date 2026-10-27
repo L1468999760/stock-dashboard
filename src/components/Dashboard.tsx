@@ -7,18 +7,18 @@ import PriceCard from "./PriceCard";
 import HistoryChart from "./HistoryChart";
 import FundList from "./FundList";
 import ThemeToggle, { type ThemeMode } from "./ThemeToggle";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useI18n } from "./I18nProvider";
+import type { Key } from "@/lib/i18n";
 import type { FundInfo, ActiveFundInfo } from "@/lib/funds";
 
-const RANGES = [
-  { key: "3m", label: "3个月" },
-  { key: "6m", label: "6个月" },
-  { key: "1y", label: "1年" },
-  { key: "3y", label: "3年" },
-];
+const RANGES = ["3m", "6m", "1y", "3y"] as const;
+const RANGE_LABEL: Record<string, Key> = { "3m": "range3m", "6m": "range6m", "1y": "range1y", "3y": "range3y" };
 
 const ASSET_ORDER: AssetKey[] = ["ndx", "spx", "gold", "dv50"];
 
 export default function Dashboard() {
+  const { t, locale } = useI18n();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string>("");
@@ -29,29 +29,18 @@ export default function Dashboard() {
   const [range, setRange] = useState("1y");
   const [goldSrc, setGoldSrc] = useState<GoldSource>("cn");
   const [refreshing, setRefreshing] = useState(false);
-  // 主题:亮/暗/系统,默认暗色;初始值由 layout 内联脚本写在 <html> 上,挂载后同步
+  // 主题:亮/暗,默认暗色;初始值由 layout 内联脚本写在 <html> 上,挂载后同步
   const [theme, setTheme] = useState<ThemeMode>("dark");
-  const [dark, setDark] = useState(true);
+  const dark = theme === "dark";
 
   useEffect(() => {
     const t = document.documentElement.dataset.theme;
-    if (t === "light" || t === "dark" || t === "system") setTheme(t);
-    setDark(document.documentElement.classList.contains("dark"));
+    if (t === "light" || t === "dark") setTheme(t);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("theme", theme);
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => {
-      const d = theme === "dark" || (theme === "system" && mq.matches);
-      document.documentElement.classList.toggle("dark", d);
-      setDark(d);
-    };
-    apply();
-    if (theme === "system") {
-      mq.addEventListener("change", apply);
-      return () => mq.removeEventListener("change", apply);
-    }
+    document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
   const refreshQuotes = useCallback(async () => {
@@ -62,12 +51,12 @@ export default function Dashboard() {
       else {
         setQuotes(j.quotes);
         setQuoteError(null);
-        setFetchedAt(new Date(j.fetchedAt).toLocaleTimeString("zh-CN"));
+        setFetchedAt(new Date(j.fetchedAt).toLocaleTimeString(locale === "en" ? "en-US" : locale));
       }
     } catch (e) {
       setQuoteError(String(e));
     }
-  }, []);
+  }, [locale]);
 
   const refreshFunds = useCallback(async () => {
     try {
@@ -140,23 +129,24 @@ export default function Dashboard() {
             />
             <path d="M52.7 23.3 L50.6 34.6 L41.4 25.4 Z" fill="#fff" />
           </svg>
-          行情与限购看板
+          {t("appTitle")}
         </h1>
         <div className="flex items-center gap-3">
           <div className="text-xs text-muted">
             {quoteError ? (
               <span className="text-up">{quoteError}</span>
             ) : (
-              <>信息更新于 {fetchedAt} · 5 分钟自动刷新</>
+              <span>{t("updatedInfo", { time: fetchedAt })}</span>
             )}
           </div>
+          <LanguageSwitcher />
           <ThemeToggle value={theme} onChange={setTheme} />
           <button
             onClick={refreshAll}
             disabled={refreshing}
             className="rounded-lg border border-line-strong bg-card px-3 py-1 text-xs text-fg-soft transition-colors hover:border-faint hover:text-fg disabled:opacity-50"
           >
-            {refreshing ? "刷新中…" : "手动刷新"}
+            {refreshing ? t("refreshing") : t("refresh")}
           </button>
         </div>
       </header>
@@ -181,17 +171,17 @@ export default function Dashboard() {
 
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">历史走势</h2>
+          <h2 className="text-lg font-semibold">{t("historyTitle")}</h2>
           <div className="flex gap-1 rounded-lg bg-chip p-1">
             {RANGES.map((r) => (
               <button
-                key={r.key}
-                onClick={() => setRange(r.key)}
+                key={r}
+                onClick={() => setRange(r)}
                 className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                  range === r.key ? "bg-chip-active text-fg" : "text-muted hover:text-fg-soft"
+                  range === r ? "bg-chip-active text-fg" : "text-muted hover:text-fg-soft"
                 }`}
               >
-                {r.label}
+                {t(RANGE_LABEL[r])}
               </button>
             ))}
           </div>
@@ -215,16 +205,16 @@ export default function Dashboard() {
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-1 text-lg font-semibold">QDII 基金每日限购额度</h2>
+        <h2 className="mb-1 text-lg font-semibold">{t("qdiiTitle")}</h2>
         <div className="mb-3 flex flex-wrap gap-2 text-xs">
           <span className="rounded bg-card px-2 py-1 text-muted">
-            开放申购 <span className="font-semibold text-down">{funds.filter((f) => f.status === "open").length}</span>
+            {t("statusOpen")} <span className="font-semibold text-down">{funds.filter((f) => f.status === "open").length}</span>
           </span>
           <span className="rounded bg-card px-2 py-1 text-muted">
-            限大额 <span className="font-semibold text-amber-400">{funds.filter((f) => f.status === "limited").length}</span>
+            {t("statusLimited")} <span className="font-semibold text-amber-400">{funds.filter((f) => f.status === "limited").length}</span>
           </span>
           <span className="rounded bg-card px-2 py-1 text-muted">
-            暂停已隐藏 <span className="font-semibold text-fg-soft">{funds.filter((f) => f.status === "suspended").length}</span>
+            {t("chipSuspendedHidden")} <span className="font-semibold text-fg-soft">{funds.filter((f) => f.status === "suspended").length}</span>
           </span>
         </div>
         {funds.length + activeFunds.length > 0 ? (
@@ -236,13 +226,13 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="rounded-xl border border-line bg-card py-8 text-center text-xs text-muted">
-            限购数据未加载成功,点右上角「手动刷新」重试
+            {t("fundsLoadFail")}
           </div>
         )}
       </section>
 
       <footer className="mt-10 text-center text-xs text-faint">
-        数据来源:腾讯财经 / 新浪财经 / 天天基金 · 仅供参考,不构成投资建议
+        {t("footer")}
       </footer>
     </main>
   );

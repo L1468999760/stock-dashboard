@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { AssetKey, GoldSource } from "@/lib/market";
-import { ASSETS, GOLD_SOURCES } from "@/lib/market";
+import { assetLabel } from "@/lib/i18n";
 import type { Valuation } from "@/lib/valuation";
 import GoldToggle from "./GoldToggle";
+import { useI18n } from "./I18nProvider";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), {
   ssr: false,
@@ -46,11 +47,6 @@ const SPREAD_COLOR = "#a78bfa"; // 股债利差(紫虚线,右轴,默认隐藏)
 const DXY_COLOR = "#2dd4bf"; // 美元指数(青,右轴,默认隐藏)
 const CPI_COLOR = "#f472b6"; // 美国CPI同比(粉虚线,右轴,默认隐藏)
 
-const DY_SERIES = "股息率(估)";
-const SPREAD_SERIES = "股债利差(估)";
-const DXY_SERIES = "美元指数";
-const CPI_SERIES = "美国CPI同比";
-
 interface Props {
   asset: AssetKey;
   range: string;
@@ -62,6 +58,17 @@ interface Props {
 }
 
 export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, valuation, dark = true }: Props) {
+  const { t } = useI18n();
+  // 图例/系列的本地化名称(ECharts 画布不吃 CSS,字符串需随语言重建)
+  const S = {
+    close: t("seriesClose"),
+    ma250: t("seriesMa250"),
+    ma20: t("seriesMa20"),
+    dy: t("seriesDy"),
+    spread: t("seriesSpread"),
+    dxy: t("seriesDxy"),
+    cpi: t("seriesCpi"),
+  };
   const [data, setData] = useState<HistoryData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +91,8 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
     };
   }, [asset, range, goldSrc]);
 
-  const meta = asset === "gold" ? GOLD_SOURCES[goldSrc ?? "cn"] : ASSETS[asset];
+  const goldKey = assetLabel("gold", goldSrc ?? "cn");
+  const metaName = asset === "gold" ? t(goldKey.name) : t(assetLabel(asset).name);
   const color = LINE_COLOR[asset];
   const precision = asset === "dv50" ? 4 : 2;
   const lines = data?.lines ?? [];
@@ -152,12 +160,12 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
       textStyle: { color: ui.legend, fontSize: 11 },
       // 月线/股息率/股债利差/美元指数/CPI默认不展示,点击图例切换
       selected: {
-        "收盘价": true,
-        "年线 MA250": true,
-        "月线 MA20": false,
-        ...(hasYield ? { [DY_SERIES]: false, [SPREAD_SERIES]: false } : {}),
-        ...(hasDxy ? { [DXY_SERIES]: false } : {}),
-        ...(hasCpi ? { [CPI_SERIES]: false } : {}),
+        [S.close]: true,
+        [S.ma250]: true,
+        [S.ma20]: false,
+        ...(hasYield ? { [S.dy]: false, [S.spread]: false } : {}),
+        ...(hasDxy ? { [S.dxy]: false } : {}),
+        ...(hasCpi ? { [S.cpi]: false } : {}),
       } as Record<string, boolean>,
     },
     tooltip: {
@@ -177,13 +185,13 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
         const dxyv = dxy[idx];
         const cpiv = cpi[idx];
         let html = head;
-        if (close !== undefined) html += `<br/>收盘 <b>${close.toFixed(precision)}</b>`;
-        if (ma20v != null) html += `<br/>月线 <b>${ma20v.toFixed(precision)}</b>`;
-        if (ma250v != null) html += `<br/>年线 <b>${ma250v.toFixed(precision)}</b>`;
-        if (dyv != null) html += `<br/>${DY_SERIES} <b>${dyv.toFixed(2)}%</b>`;
-        if (spv != null) html += `<br/>${SPREAD_SERIES} <b>${spv.toFixed(2)}%</b>`;
-        if (dxyv != null) html += `<br/>美元指数 <b>${dxyv.toFixed(2)}</b>`;
-        if (cpiv != null) html += `<br/>美国CPI同比 <b>${cpiv.toFixed(1)}%</b>`;
+        if (close !== undefined) html += `<br/>${t("tipClose")} <b>${close.toFixed(precision)}</b>`;
+        if (ma20v != null) html += `<br/>${t("tipMa20")} <b>${ma20v.toFixed(precision)}</b>`;
+        if (ma250v != null) html += `<br/>${t("tipMa250")} <b>${ma250v.toFixed(precision)}</b>`;
+        if (dyv != null) html += `<br/>${S.dy} <b>${dyv.toFixed(2)}%</b>`;
+        if (spv != null) html += `<br/>${S.spread} <b>${spv.toFixed(2)}%</b>`;
+        if (dxyv != null) html += `<br/>${t("tipDxy")} <b>${dxyv.toFixed(2)}</b>`;
+        if (cpiv != null) html += `<br/>${t("tipCpi")} <b>${cpiv.toFixed(1)}%</b>`;
         return html;
       },
     },
@@ -202,7 +210,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
     dataZoom: [{ type: "inside" as const }],
     series: [
       {
-        name: "收盘价",
+        name: S.close,
         type: "line" as const,
         data: lines.map((l) => l.close),
         showSymbol: false,
@@ -225,7 +233,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
       ...(hasDxy
         ? [
             {
-              name: DXY_SERIES,
+              name: S.dxy,
               type: "line" as const,
               yAxisIndex: dxyAxisIdx,
               data: dxy,
@@ -236,7 +244,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
           ]
         : []),
       {
-        name: "年线 MA250",
+        name: S.ma250,
         type: "line" as const,
         data: ma250,
         showSymbol: false,
@@ -244,7 +252,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
         itemStyle: { color: MA_COLOR },
       },
       {
-        name: "月线 MA20",
+        name: S.ma20,
         type: "line" as const,
         data: ma20,
         showSymbol: false,
@@ -254,7 +262,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
       ...(hasCpi
         ? [
             {
-              name: CPI_SERIES,
+              name: S.cpi,
               type: "line" as const,
               yAxisIndex: cpiAxisIdx,
               data: cpi,
@@ -267,7 +275,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
       ...(hasYield
         ? [
             {
-              name: DY_SERIES,
+              name: S.dy,
               type: "line" as const,
               yAxisIndex: 1,
               data: dy,
@@ -276,7 +284,7 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
               itemStyle: { color: DY_COLOR },
             },
             {
-              name: SPREAD_SERIES,
+              name: S.spread,
               type: "line" as const,
               yAxisIndex: 1,
               data: spread,
@@ -292,16 +300,16 @@ export default function HistoryChart({ asset, range, goldSrc, onGoldSrcChange, v
   return (
     <div className="rounded-xl border border-line bg-card p-4">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1">
-        <h3 className="font-medium text-fg">{meta.name} 走势</h3>
+        <h3 className="font-medium text-fg">{t("trendTitle", { name: metaName })}</h3>
         <div className="flex items-center gap-2">
           {valuation?.pe != null && (
             <span
               className="rounded bg-chip px-1.5 py-0.5 text-[11px] text-fg-soft"
-              title={`市盈率(蛋卷指数估值,${valuation.date || "日更"})`}
+              title={t("peTooltip", { date: valuation.date || t("peDateFallback") })}
             >
               PE <b className="tabular-nums">{valuation.pe.toFixed(2)}</b>
               {valuation.pePercentile != null && (
-                <span className="text-muted"> · {(valuation.pePercentile * 100).toFixed(0)}%分位</span>
+                <span className="text-muted"> · {t("pePercentile", { n: (valuation.pePercentile * 100).toFixed(0) })}</span>
               )}
             </span>
           )}
