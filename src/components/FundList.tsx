@@ -96,7 +96,7 @@ export default function FundList({ funds, activeFunds }: { funds: FundInfo[]; ac
       })}
 
       {(() => {
-        // 同指数组口径:只展示 开放+限额
+        // 开放+限额正常展示;暂停申购灰显保留(天天基金代销口径,直销渠道可能仍可买);仅抓取失败隐藏
         const rankA = (f: ActiveFundInfo) => (f.status === "open" ? Infinity : f.limitYuan ?? -1);
         const sorters: Record<ActiveSortKey, (a: ActiveFundInfo, b: ActiveFundInfo) => number> = {
           limit: (a, b) => rankA(b) - rankA(a),
@@ -105,8 +105,9 @@ export default function FundList({ funds, activeFunds }: { funds: FundInfo[]; ac
           size: (a, b) => (b.fundSizeYi ?? -1) - (a.fundSizeYi ?? -1),
         };
         const activeRows = activeFunds
-          .filter((f) => f.status === "open" || f.status === "limited")
+          .filter((f) => f.status !== "unknown")
           .sort(sorters[activeSort]);
+        const buyableCount = activeRows.filter((f) => f.status !== "suspended").length;
         if (activeRows.length === 0) return null;
         return (
           <div className="rounded-xl border border-line bg-card p-4 md:col-span-2">
@@ -127,7 +128,7 @@ export default function FundList({ funds, activeFunds }: { funds: FundInfo[]; ac
               </div>
             </div>
             <div className="mb-1 text-xs text-muted">
-              {activeRows.length} 只可申购 · 涨跌幅为最新净值日增长(QDII 为 T-1)
+              {buyableCount} 只可申购 · 涨跌幅为最新净值日增长(QDII 为 T-1)
             </div>
             <div className="space-y-0.5">
               {activeRows.map((f) => {
@@ -143,7 +144,7 @@ export default function FundList({ funds, activeFunds }: { funds: FundInfo[]; ac
                   className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-chip/60"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-fg">{f.name}</div>
+                    <div className={`truncate text-sm ${f.status === "suspended" ? "text-muted" : "text-fg"}`}>{f.name}</div>
                     <div className="text-[11px] text-muted">
                       {f.code}
                       {f.fundSizeYi != null && (

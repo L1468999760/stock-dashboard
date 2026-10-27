@@ -222,39 +222,62 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
   throw lastErr;
 }
 
-/** 区域分布:中报/年报全持仓按市场前缀归类——美股(105/106/107)、港股(116)、A股(0/1)、其它 */
+/** 区域分布:中报/年报全持仓按市场前缀归类——美股(105/106/107)、港股(116)、A股(0/1)、其它
+ *  接口按 year+month 返回该年各期表格,但仅 month 指定期展开全持仓(6=中报 2季度、12=年报 4季度),
+ *  其余期只有前十大,且最新季报表排最前——不能取第一张表,须按披露日历选期并解析对应季度那张 */
 async function fetchRegionExposure(
   code: string
 ): Promise<{ region: { us: number; hk: number; cn: number; other: number } | null; holdingsDate: string }> {
-  return withRetry(async () => {
-  const res = await fetch(
-    `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=&month=6&_v=3`,
-    {
-      headers: { "User-Agent": UA, Referer: `https://fundf10.eastmoney.com/ccmx_${code}.html` },
-      next: { revalidate: 86400 },
+  const parseFullTable = (text: string, quarter: string) => {
+    for (const seg of text.split("</table>")) {
+      const q = seg.match(/(\d{4})年([1-4])季度股票投资明细/);
+      const date = seg.match(/截止至：<font[^>]*>([\d-]+)</)?.[1] ?? "";
+      if (!q || q[2] !== quarter || !date) continue;
+      const sums = { us: 0, hk: 0, cn: 0, other: 0 };
+      let any = false;
+      for (const row of seg.split("<tr>")) {
+        const mk = row.match(/unify\/r\/(\d+)\./);
+        const pct = row.match(/>([\d.]+)%</);
+        if (!mk || !pct) continue;
+        any = true;
+        const v = parseFloat(pct[1]);
+        if (/^10[567]$/.test(mk[1])) sums.us += v;
+        else if (mk[1] === "116") sums.hk += v;
+        else if (mk[1] === "0" || mk[1] === "1") sums.cn += v;
+        else sums.other += v;
+      }
+      if (any) {
+        const r1 = (n: number) => Math.round(n * 10) / 10;
+        return { region: { us: r1(sums.us), hk: r1(sums.hk), cn: r1(sums.cn), other: r1(sums.other) }, holdingsDate: date };
+      }
     }
-  );
-  if (!res.ok) throw new Error(`持仓 HTTP ${res.status} (${code})`);
-  const text = await res.text();
-  // month=6 返回中报全持仓(可能上千行),取第一张表
-  const table = text.split("</table>")[0];
-  const holdingsDate = table.match(/截止至：<font[^>]*>([\d-]+)</)?.[1] ?? "";
-  const sums = { us: 0, hk: 0, cn: 0, other: 0 };
-  let any = false;
-  for (const row of table.split("<tr>")) {
-    const mk = row.match(/unify\/r\/(\d+)\./);
-    const pct = row.match(/>([\d.]+)%</);
-    if (!mk || !pct) continue;
-    any = true;
-    const v = parseFloat(pct[1]);
-    if (/^10[567]$/.test(mk[1])) sums.us += v;
-    else if (mk[1] === "116") sums.hk += v;
-    else if (mk[1] === "0" || mk[1] === "1") sums.cn += v;
-    else sums.other += v;
-  }
-  if (!any) return { region: null, holdingsDate };
-  const r1 = (n: number) => Math.round(n * 10) / 10;
-  return { region: { us: r1(sums.us), hk: r1(sums.hk), cn: r1(sums.cn), other: r1(sums.other) }, holdingsDate };
+    return { region: null, holdingsDate: "" };
+  };
+  return withRetry(async () => {
+    const fetchCc = async (year: number, month: 6 | 12) => {
+      const res = await fetch(
+        `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=${year}&month=${month}&_v=3`,
+        {
+          headers: { "User-Agent": UA, Referer: `https://fundf10.eastmoney.com/ccmx_${code}.html` },
+          next: { revalidate: 86400 },
+        }
+      );
+      if (!res.ok) throw new Error(`持仓 HTTP ${res.status} (${code})`);
+      return res.text();
+    };
+    // 披露日历:9-12月最新完整期=当年中报(8月末截止),1-8月=上年年报(3月末截止)
+    const now = new Date();
+    const lateYear = now.getMonth() + 1 >= 9;
+    const y = lateYear ? now.getFullYear() : now.getFullYear() - 1;
+    // 主选期缺表(迟披露/新基金)时依次退回更早的完整期
+    const plans: [number, 6 | 12][] = lateYear
+      ? [[y, 6], [y - 1, 12], [y - 1, 6]]
+      : [[y, 12], [y, 6]];
+    for (const [year, month] of plans) {
+      const r = parseFullTable(await fetchCc(year, month), month === 6 ? "2" : "4");
+      if (r.region) return r;
+    }
+    return { region: null, holdingsDate: "" };
   });
 }
 
